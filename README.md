@@ -1170,8 +1170,8 @@ function settingsHTML(){ return `
       <button class="btn btn-primary btn-sm" id="saveTok">Save Token</button>
     </div>
     <div class="settings-section">
-      <div class="settings-title">✨ Grok AI Key <span style="font-size:11px;color:var(--green);margin-left:6px">${S.grokKey?"● Connected":"○ Not set"}</span></div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Used for AI candidate scoring. Get your key from <a href="https://console.x.ai" target="_blank" style="color:var(--accent)">console.x.ai</a></div>
+      <div class="settings-title">⚡ Groq AI Key <span style="font-size:11px;color:var(--green);margin-left:6px">${S.grokKey?"● Connected":"○ Not set"}</span></div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Used for AI candidate scoring. Get your key from <a href="https://console.groq.com" target="_blank" style="color:var(--accent)">console.groq.com</a></div>
       <input class="form-input" id="grokKeyInput" type="password" placeholder="gsk_…" value="${S.grokKey}" style="margin-bottom:10px"/>
       <div style="display:flex;gap:8px">
         <button class="btn btn-primary btn-sm" id="saveGrok">Save Grok Key</button>
@@ -1377,7 +1377,7 @@ function bindShell(){
   if(sg) sg.onclick=()=>{
     const v=document.getElementById("grokKeyInput").value.trim();
     S.grokKey=v; localStorage.setItem("rk_grok",v);
-    toast(v?"Grok key saved ✓":"Grok key cleared","ok"); render();
+    toast(v?"Groq key saved ✓":"Groq key cleared","ok"); render();
   };
 
   const tg=document.getElementById("testGrok");
@@ -1387,12 +1387,12 @@ function bindShell(){
     if(!key){res.innerHTML=`<span style="color:var(--red)">No key entered</span>`;return}
     tg.disabled=true;tg.textContent="Testing…";
     try{
-      const r=await fetch("https://api.x.ai/v1/chat/completions",{
+      const r=await fetch("https://api.groq.com/openai/v1/chat/completions",{
         method:"POST",
         headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
-        body:JSON.stringify({model:"grok-3-mini",messages:[{role:"user",content:"Say OK"}],max_tokens:5}),
+        body:JSON.stringify({model:"llama-3.1-8b-instant",messages:[{role:"user",content:"Say OK"}],max_tokens:5}),
       });
-      if(r.ok){res.innerHTML=`<span style="color:var(--green)">✓ Grok connected! Key is valid.</span>`;}
+      if(r.ok){res.innerHTML=`<span style="color:var(--green)">✓ Groq connected! llama-3.1-8b-instant ready.</span>`;}
       else{const e=await r.json().catch(()=>({}));res.innerHTML=`<span style="color:var(--red)">✕ ${e.error?.message||"HTTP "+r.status}</span>`;}
     }catch(e){res.innerHTML=`<span style="color:var(--red)">✕ ${e.message}</span>`;}
     tg.disabled=false;tg.textContent="Test Connection";
@@ -1656,14 +1656,14 @@ Respond ONLY with a valid JSON object (no markdown, no explanation) in this exac
 
 Score 0-100. Be strict and honest.`;
 
-  const res = await fetch("https://api.x.ai/v1/chat/completions", {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Authorization": "Bearer " + apiKey,
     },
     body: JSON.stringify({
-      model: "grok-3-mini",
+      model: "llama-3.1-8b-instant",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.1,
       max_tokens: 300,
@@ -1672,7 +1672,7 @@ Score 0-100. Be strict and honest.`;
 
   if(!res.ok){
     const err = await res.text().catch(()=>"");
-    throw new Error("Grok API "+res.status+": "+err.slice(0,100));
+    throw new Error("Groq API "+res.status+": "+err.slice(0,100));
   }
 
   const data = await res.json();
