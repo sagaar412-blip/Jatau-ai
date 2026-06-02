@@ -806,18 +806,26 @@ function skelRows(){
 function candModalHTML(){
   const c=S.selectedCand; if(!c) return "";
   const r=raw(c);
+  // Pull every field — check both top-level (Convex) and rawData
   const wh=r.workHistory||c.workHistory||[];
   const edu=r.education||c.education||[];
-  const langs=r.languages||c.languages||[];
-  const skills=[...(c.skills||[]),...(r.keySkills||[])].filter((s,i,a)=>a.indexOf(s)===i);
-  const ai=c.aiSummary||r.aiSummary||c.resdexAiSummary||"";
+  const langs=[...(r.languages||c.languages||[])];
+  const certs=r.certifications||c.certifications||[];
+  const projects=r.projects||c.projects||[];
+  const onlineLinks=r.onlineLinks||c.onlineLinks||[];
+  const workSamples=r.workSamples||c.workSamples||[];
+  const topSkills=r.topSkills||c.topSkills||[];
+  const verifiedSkills=r.verifiedSkills||c.verifiedSkills||[];
+  const profileTags=r.profileTags||c.profileTags||[];
+  const skills=[...new Set([...(c.skills||[]),...(r.topSkills||[]),...(r.skills||[])])];
+  const ai=c.aiSummary||r.aiSummary||r.resdexAiSummary||"";
   const salary=r.salary||c.salary||"";
+  const expectedSalary=r.expectedSalary||c.expectedSalary||"";
   const notice=r.noticePeriod||c.noticePeriod||"";
   const prefLoc=r.preferredLocations||c.preferredLocations||"";
   const jn=jobName(c.jobId);
-
-  const tabs=["overview","experience","education","skills","ai","notes"];
-  const tabLabels={overview:"Overview",experience:"Experience",education:"Education",skills:"Skills & Keywords",ai:"AI Analysis",notes:"Notes"};
+  const tabs=["overview","experience","education","skills","projects","ai","notes"];
+  const tabLabels={overview:"Overview",experience:"Work ("+wh.length+")",education:"Education",skills:"Skills",projects:"Projects ("+projects.length+")",ai:"AI Insights",notes:"Notes"};
 
   return `<div class="overlay" id="candOverlay">
   <div class="modal">
@@ -840,135 +848,170 @@ function candModalHTML(){
           <div class="profile-av">${initials(c.name)}</div>
           <div style="flex:1">
             <div class="profile-name">${fmt(c.name)}</div>
-            <div class="profile-role">${fmt(c.currentTitle)}${c.currentCompany?" · "+c.currentCompany:""}</div>
+            <div class="profile-role">${fmt(c.currentTitle||r.headline)}${(c.currentCompany||r.currentCompany)?" · "+(c.currentCompany||r.currentCompany):""}</div>
             <div class="profile-meta">
               ${c.location?`<span class="pmeta">📍 ${c.location}</span>`:""}
-              ${c.experienceYears!=null?`<span class="pmeta">💼 ${c.experienceYears}y exp</span>`:""}
-              ${notice?`<span class="pmeta">⏱ ${notice}</span>`:""}
+              ${(c.experienceYears!=null||r.experienceYears!=null)?`<span class="pmeta">💼 ${c.experienceYears??r.experienceYears}y exp</span>`:""}
+              ${notice?`<span class="pmeta">⏱ ${notice}${(r.immediatelyAvailable||c.immediatelyAvailable)?" 🟢":""}</span>`:""}
               ${salary?`<span class="pmeta">💰 ${salary}</span>`:""}
+              ${(r.emailVerified||c.emailVerified)?`<span class="chip chip-green" style="font-size:9px">✉ Verified</span>`:""}
+              ${(r.mobileVerified||c.mobileVerified)?`<span class="chip chip-green" style="font-size:9px">📱 Verified</span>`:""}
+              ${(r.premiumCandidate)?`<span class="chip chip-yellow" style="font-size:9px">⭐ Premium</span>`:""}
             </div>
-            <div style="margin-top:8px">
+            <div style="margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
               <select class="fb-select" id="statusSelect" style="font-size:12px;padding:4px 8px">
                 ${["sourced","screening","shortlisted","contacted","rejected"].map(s=>`<option value="${s}" ${(c.status||"sourced")===s?"selected":""}>${s}</option>`).join("")}
               </select>
-              ${jn?`<span class="chip chip-orange" style="margin-left:6px">${jn}</span>`:""}
+              ${jn?`<span class="chip chip-orange">${jn}</span>`:""}
+              ${(r.activeDate)?`<span style="font-size:10px;color:var(--text4)">Active: ${r.activeDate}</span>`:""}
             </div>
+            ${profileTags.length?`<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap">${profileTags.map(t=>`<span class="chip chip-purple" style="font-size:10px">${t}</span>`).join("")}</div>`:""}
           </div>
         </div>
-        ${ai?`<div class="ai-box"><div class="ai-label">✨ AI Summary</div><div class="ai-text">${ai.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>").replace(/\n/g,"<br>")}</div></div>`:""}
-        ${c.summary||r.workSummary?`<div class="section-lbl">Profile Summary</div><div style="font-size:13px;color:var(--text2);line-height:1.65;background:var(--bg3);border-radius:var(--r);padding:12px">${c.summary||r.workSummary||""}</div>`:""}
-        <div class="section-lbl">Contact & Details</div>
+
+        ${ai?`<div class="ai-box"><div class="ai-label">✨ Naukri AI Insights</div><div class="ai-text" style="white-space:pre-line">${ai.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>")}</div></div>`:""}
+
+        ${(c.summary||r.workSummary||r.summary)?`
+        <div class="section-lbl">Profile Summary</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.7;background:var(--bg3);border-radius:var(--r);padding:14px;white-space:pre-line">${c.summary||r.workSummary||r.summary}</div>`:""}
+
+        <div class="section-lbl">Contact Details</div>
         <div class="info-grid">
-          <div class="info-item"><div class="info-l">Email</div>
-            <div class="info-v" style="font-family:'Geist Mono',monospace;font-size:12px">
-              ${fmt(c.email)} ${r.emailVerified?'<span class="chip chip-green" style="font-size:9px">✓ Verified</span>':''}
-            </div>
+          <div class="info-item">
+            <div class="info-l">Email</div>
+            <div class="info-v" style="font-family:'Geist Mono',monospace;font-size:12px">${fmt(c.email||r.email)}${(r.emailVerified||c.emailVerified)?` <span class="chip chip-green" style="font-size:9px">✓</span>`:""}</div>
           </div>
-          <div class="info-item"><div class="info-l">Phone</div>
-            <div class="info-v" style="font-family:'Geist Mono',monospace;font-size:12px">
-              ${fmt(c.phone)} ${r.mobileVerified?'<span class="chip chip-green" style="font-size:9px">✓ Verified</span>':''}
-            </div>
+          <div class="info-item">
+            <div class="info-l">Phone</div>
+            <div class="info-v" style="font-family:'Geist Mono',monospace;font-size:12px">${fmt(c.phone||r.phone)}${(r.mobileVerified||c.mobileVerified)?` <span class="chip chip-green" style="font-size:9px">✓</span>`:""}</div>
           </div>
-          <div class="info-item"><div class="info-l">Current Salary</div>
-            <div class="info-v">${fmt(salary)}${r.fixedSalary?` <span style="font-size:10px;color:var(--text4)">(Fixed: ${r.fixedSalary}${r.variableSalary?` + Var: ${r.variableSalary}`:""})</span>`:""}
-            </div>
-          </div>
-          <div class="info-item"><div class="info-l">Expected Salary</div><div class="info-v">${fmt(r.expectedSalary||c.expectedSalary)}</div></div>
-          <div class="info-item"><div class="info-l">Notice Period</div>
-            <div class="info-v">${fmt(notice)}${r.noticePeriodEndDate?` <span style="font-size:10px;color:var(--text4)">(Available: ${r.noticePeriodEndDate})</span>`:""}
-              ${r.immediatelyAvailable?'<span class="chip chip-green" style="font-size:9px;margin-left:4px">Immediate</span>':''}
-            </div>
-          </div>
-          <div class="info-item"><div class="info-l">Preferred Location</div><div class="info-v">${fmt(prefLoc)}</div></div>
-          ${r.workStatus?`<div class="info-item"><div class="info-l">Work Status</div><div class="info-v">${r.workStatus}</div></div>`:""}
-          ${r.gender?`<div class="info-item"><div class="info-l">Gender</div><div class="info-v">${r.gender}</div></div>`:""}
-          ${r.industry?`<div class="info-item"><div class="info-l">Industry</div><div class="info-v">${r.industry}</div></div>`:""}
-          ${r.department?`<div class="info-item"><div class="info-l">Department</div><div class="info-v">${r.department}</div></div>`:""}
-          ${r.roleCategory?`<div class="info-item"><div class="info-l">Role Category</div><div class="info-v">${r.roleCategory}</div></div>`:""}
-          ${r.maritalStatus?`<div class="info-item"><div class="info-l">Marital Status</div><div class="info-v">${r.maritalStatus}</div></div>`:""}
-          ${r.dateOfBirth||c.dateOfBirth?`<div class="info-item"><div class="info-l">Date of Birth</div><div class="info-v">${r.dateOfBirth||c.dateOfBirth}</div></div>`:""}
-          ${r.address?`<div class="info-item" style="grid-column:span 2"><div class="info-l">Address</div><div class="info-v" style="font-size:12px">${r.address}</div></div>`:""}
+          ${(r.address||c.address)?`<div class="info-item" style="grid-column:span 2"><div class="info-l">Address</div><div class="info-v" style="font-size:12px">${r.address||c.address}</div></div>`:""}
         </div>
-        ${r.isFresher?'<div style="margin-top:8px"><span class="chip chip-blue">Fresher</span></div>':''}
-        ${(r.onlineLinks||[]).length?`
-        <div class="section-lbl">Online Presence</div>
+
+        <div class="section-lbl">Compensation & Availability</div>
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-l">Current Salary</div>
+            <div class="info-v">${fmt(salary,"—")}${r.fixedSalary?`<div style="font-size:10px;color:var(--text4);margin-top:2px">Fixed: ${r.fixedSalary}${r.variableSalary?" + Variable: "+r.variableSalary:""}</div>`:""}</div>
+          </div>
+          <div class="info-item"><div class="info-l">Expected Salary</div><div class="info-v">${fmt(expectedSalary||r.expectedCtc,"—")}</div></div>
+          <div class="info-item">
+            <div class="info-l">Notice Period</div>
+            <div class="info-v">${fmt(notice,"—")}${r.noticePeriodEndDate?`<div style="font-size:10px;color:var(--text4);margin-top:2px">Available: ${r.noticePeriodEndDate}</div>`:""}${(r.immediatelyAvailable||c.immediatelyAvailable)?`<span class="chip chip-green" style="font-size:9px;margin-top:4px;display:inline-block">Immediate</span>`:""}</div>
+          </div>
+          <div class="info-item"><div class="info-l">Preferred Locations</div><div class="info-v" style="font-size:12px">${fmt(prefLoc,"—")}</div></div>
+          ${(r.desiredJobType||c.desiredJobType)?`<div class="info-item"><div class="info-l">Job Type</div><div class="info-v">${r.desiredJobType||c.desiredJobType}</div></div>`:""}
+          ${r.workStatus?`<div class="info-item"><div class="info-l">Work Status</div><div class="info-v">${r.workStatus}</div></div>`:""}
+        </div>
+
+        <div class="section-lbl">Professional Classification</div>
+        <div class="info-grid">
+          ${(r.industry||c.industry)?`<div class="info-item"><div class="info-l">Industry</div><div class="info-v">${r.industry||c.industry}</div></div>`:""}
+          ${(r.department||c.department)?`<div class="info-item"><div class="info-l">Department</div><div class="info-v">${r.department||c.department}</div></div>`:""}
+          ${(r.roleCategory||c.roleCategory)?`<div class="info-item"><div class="info-l">Role Category</div><div class="info-v">${r.roleCategory||c.roleCategory}</div></div>`:""}
+          ${r.isFresher?`<div class="info-item"><div class="info-l">Level</div><div class="info-v"><span class="chip chip-blue">Fresher</span></div></div>`:""}
+        </div>
+
+        <div class="section-lbl">Personal Details</div>
+        <div class="info-grid">
+          ${(r.dateOfBirth||c.dateOfBirth)?`<div class="info-item"><div class="info-l">Date of Birth</div><div class="info-v">${r.dateOfBirth||c.dateOfBirth}</div></div>`:""}
+          ${(r.gender||c.gender)?`<div class="info-item"><div class="info-l">Gender</div><div class="info-v">${r.gender||c.gender}</div></div>`:""}
+          ${(r.maritalStatus||c.maritalStatus)?`<div class="info-item"><div class="info-l">Marital Status</div><div class="info-v">${r.maritalStatus||c.maritalStatus}</div></div>`:""}
+          ${(r.category||c.category)?`<div class="info-item"><div class="info-l">Category</div><div class="info-v">${r.category||c.category}</div></div>`:""}
+          ${r.nationality?`<div class="info-item"><div class="info-l">Nationality</div><div class="info-v">${r.nationality}</div></div>`:""}
+        </div>
+
+        ${onlineLinks.length?`
+        <div class="section-lbl">Online Profiles</div>
         <div style="display:flex;flex-direction:column;gap:6px">
-          ${(r.onlineLinks||[]).map(l=>`
-          <a href="${l.url}" target="_blank" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--accent);text-decoration:none">
-            <span>🔗</span> ${l.type||"Link"}: ${l.url.slice(0,60)}
-          </a>`).join("")}
+          ${onlineLinks.map(l=>`<a href="${l.url}" target="_blank" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--accent);text-decoration:none">🔗 <strong>${l.type}:</strong> <span style="color:var(--text2)">${l.url.slice(0,65)}</span></a>`).join("")}
         </div>`:""}
-        ${langs.length?`<div class="section-lbl">Languages</div><div style="display:flex;gap:5px;flex-wrap:wrap">${langs.map(l=>`<span class="chip chip-blue">${l}</span>`).join("")}</div>`:""}
+        ${workSamples.length?`
+        <div class="section-lbl">Work Samples / Portfolio</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          ${workSamples.map(u=>`<a href="${u}" target="_blank" style="font-size:12px;color:var(--accent)">🔗 ${u.slice(0,70)}</a>`).join("")}
+        </div>`:""}
+        ${langs.length?`
+        <div class="section-lbl">Languages</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">${langs.map(l=>`<span class="chip chip-blue">${l}</span>`).join("")}</div>`:""}
       `:""}
       ${S.candTab==="experience"?`
-        ${wh.length===0?`<div class="empty"><div class="empty-icon">💼</div><div class="empty-title">No work history</div></div>`:""}
-        ${wh.map(w=>`
-        <div class="work-item">
-          <div class="work-dot"></div>
-          <div>
-            <div class="work-title">${fmt(w.title)}</div>
-            <div class="work-co">${fmt(w.company)}</div>
-            <div class="work-dates">${w.tenure||(w.startDate?w.startDate+" – "+(w.endDate||"Present"):"")}</div>
-            ${w.description?`<div class="work-desc">${String(w.description).slice(0,400)}</div>`:""}
+        ${wh.length===0?`<div class="empty"><div class="empty-icon">💼</div><div class="empty-title">No work experience</div></div>`:""}
+        ${wh.map((w,i)=>`
+        <div class="work-item" style="margin-bottom:20px">
+          <div class="work-dot" style="background:${w.isCurrent?"var(--green)":"var(--accent)"}"></div>
+          <div style="flex:1">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+              <div>
+                <div class="work-title">${fmt(w.title)}</div>
+                <div class="work-co">${fmt(w.company)}${w.location?" · "+w.location:""}</div>
+              </div>
+              ${w.isCurrent?`<span class="chip chip-green" style="font-size:9px;flex-shrink:0">Current</span>`:""}
+            </div>
+            <div class="work-dates">${fmt(w.tenure||((w.startDate||"")+(w.endDate?" – "+w.endDate:w.startDate?" – Present":"")),"—")}</div>
+            ${w.employmentType&&w.employmentType!=="other"?`<div style="font-size:10px;color:var(--text4);margin-top:2px">${w.employmentType}</div>`:""}
+            ${w.description?`<div class="work-desc" style="margin-top:8px;white-space:pre-line;max-height:300px;overflow-y:auto">${w.description}</div>`:""}
+            ${w.keywords?`<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${w.keywords.split(",").filter(s=>s.trim()).map(s=>`<span class="chip chip-gray" style="font-size:10px">${s.trim()}</span>`).join("")}</div>`:""}
           </div>
         </div>`).join("")}
       `:""}
       ${S.candTab==="education"?`
         ${edu.length===0?`<div class="empty"><div class="empty-icon">🎓</div><div class="empty-title">No education data</div></div>`:""}
         ${edu.map(e=>`
-        <div class="work-item">
+        <div class="work-item" style="margin-bottom:16px">
           <div class="work-dot" style="background:var(--blue)"></div>
           <div>
             <div class="work-title">${fmt(e.degree)}${e.specialization?" · "+e.specialization:""}</div>
             <div class="work-co">${fmt(e.college)}</div>
-            <div class="work-dates">${fmt(e.year)}</div>
+            <div class="work-dates">${e.type?`[${e.type}] `:""}${fmt(e.year)}${e.percentage?" | "+e.percentage+"%":""}</div>
           </div>
         </div>`).join("")}
-      `:""}
-      ${S.candTab==="skills"?`
-        ${skills.length===0&&!(r.topSkills||[]).length?`<div class="empty"><div class="empty-icon">🛠</div><div class="empty-title">No skills data</div></div>`:`
-        ${skills.length?`
-        <div class="section-lbl">Skills (${skills.length})</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">${skills.map(s=>`<span class="chip chip-orange">${s}</span>`).join("")}</div>`:""}
-        ${(r.verifiedSkills||[]).length?`
-        <div class="section-lbl">✓ Verified Skills</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">${(r.verifiedSkills||[]).map(s=>`<span class="chip chip-green">${s}</span>`).join("")}</div>`:""}
-        ${(r.topSkills||[]).length?`
-        <div class="section-lbl">Top Skills (Naukri Ranked)</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">${(r.topSkills||[]).map(s=>`<span class="chip chip-blue">${s}</span>`).join("")}</div>`:""}
-        ${r.keywords?`<div class="section-lbl">Keywords</div><div style="font-size:12px;color:var(--text2);line-height:1.7">${r.keywords}</div>`:""}
-        ${(r.profileTags||[]).length?`
-        <div class="section-lbl">Tags</div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px">${(r.profileTags||[]).map(t=>`<span class="chip chip-purple">${t}</span>`).join("")}</div>`:""}
-        `}
-        ${(r.certifications||[]).length?`
-        <div class="section-lbl">Certifications (${(r.certifications||[]).length})</div>
-        ${(r.certifications||[]).map(cert=>`
-        <div class="work-item">
+        ${certs.length?`
+        <div class="section-lbl" style="margin-top:20px">Certifications (${certs.length})</div>
+        ${certs.map(cert=>`
+        <div class="work-item" style="margin-bottom:12px">
           <div class="work-dot" style="background:var(--yellow)"></div>
           <div>
             <div class="work-title">${cert.name}</div>
             ${cert.issuedBy?`<div class="work-co">${cert.issuedBy}</div>`:""}
             ${cert.year?`<div class="work-dates">${cert.year}</div>`:""}
-            ${cert.url?`<a href="${cert.url}" target="_blank" style="font-size:11px;color:var(--accent)">View Certificate ↗</a>`:""}
+            ${cert.description?`<div class="work-desc">${cert.description.slice(0,200)}</div>`:""}
+            ${cert.url?`<a href="${cert.url}" target="_blank" style="font-size:11px;color:var(--accent);margin-top:4px;display:inline-block">View Certificate ↗</a>`:""}
           </div>
         </div>`).join("")}`:""}
-        ${(r.projects||[]).length?`
-        <div class="section-lbl">Projects (${(r.projects||[]).length})</div>
-        ${(r.projects||[]).map(proj=>`
-        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:8px">
-          <div style="font-weight:600;font-size:13px;color:var(--text)">${proj.title}</div>
-          ${proj.duration?`<div style="font-size:11px;color:var(--text4);font-family:'Geist Mono',monospace">${proj.duration}</div>`:""}
-          ${proj.description?`<div style="font-size:12px;color:var(--text2);margin-top:4px;line-height:1.5">${String(proj.description).slice(0,300)}</div>`:""}
-          ${proj.url?`<a href="${proj.url}" target="_blank" style="font-size:11px;color:var(--accent);margin-top:4px;display:inline-block">View Project ↗</a>`:""}
-        </div>`).join("")}`:""}
-        ${(r.workSamples||[]).length?`
-        <div class="section-lbl">Work Samples</div>
-        <div style="display:flex;flex-direction:column;gap:5px">
-          ${(r.workSamples||[]).map(url=>`<a href="${url}" target="_blank" style="font-size:12px;color:var(--accent)">🔗 ${url.slice(0,60)}</a>`).join("")}
-        </div>`:""}
       `:""}
-      ${S.candTab==="ai"?`
+      ${S.candTab==="skills"?`
+        ${skills.length?`
+        <div class="section-lbl">Key Skills (${skills.length})</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">${skills.map(s=>`<span class="chip chip-orange">${s}</span>`).join("")}</div>`:""}
+        ${topSkills.length?`
+        <div class="section-lbl">Top Skills — Naukri Ranked</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">${topSkills.map(s=>`<span class="chip chip-blue">${s}</span>`).join("")}</div>`:""}
+        ${verifiedSkills.length?`
+        <div class="section-lbl">✓ Assessed & Verified Skills</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">${verifiedSkills.map(s=>`<span class="chip chip-green">${s}</span>`).join("")}</div>`:""}
+        ${(r.keywords||c.keywords)?`
+        <div class="section-lbl">Keywords</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.7;background:var(--bg3);border-radius:var(--r);padding:12px">${r.keywords||c.keywords}</div>`:""}
+        ${langs.length?`
+        <div class="section-lbl">Languages</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">${langs.map(l=>`<span class="chip chip-purple">${l}</span>`).join("")}</div>`:""}
+        ${skills.length===0&&topSkills.length===0?`<div class="empty"><div class="empty-icon">🛠</div><div class="empty-title">No skills data</div></div>`:""}
+      `:""}
+      ${S.candTab==="projects"?`
+        ${projects.length===0?`<div class="empty"><div class="empty-icon">🚀</div><div class="empty-title">No projects listed</div></div>`:""}
+        ${projects.map((pr,i)=>`
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:14px 16px;margin-bottom:12px">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px">
+            <div class="work-title" style="font-size:13px">${pr.title}</div>
+            ${pr.url?`<a href="${pr.url}" target="_blank" class="btn btn-ghost btn-xs" style="flex-shrink:0">↗ Link</a>`:""}
+          </div>
+          ${pr.duration?`<div class="work-dates">${pr.duration}</div>`:""}
+          ${pr.description?`<div class="work-desc" style="margin-top:8px;white-space:pre-line;max-height:250px;overflow-y:auto;font-size:12px">${pr.description}</div>`:""}
+          ${pr.skills&&pr.skills.length?`<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">${pr.skills.map(s=>`<span class="chip chip-orange" style="font-size:10px">${s}</span>`).join("")}</div>`:""}
+        </div>`).join("")}
+      `:""}
+            ${S.candTab==="ai"?`
         ${ai?`
         <div class="ai-box" style="margin-bottom:16px">
           <div class="ai-label">✨ AI Insights from CV (Naukri)</div>
