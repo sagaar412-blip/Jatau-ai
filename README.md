@@ -832,7 +832,9 @@ function candModalHTML(){
   const r=raw(c);
   // Pull every field — check both top-level (Convex) and rawData
   const wh=r.workHistory||c.workHistory||[];
-  const edu=r.education||c.education||[];
+  // Education: filter out any non-objects (strings, nulls) that sneak through
+  const _eduRaw=r.education||c.education||[];
+  const edu=Array.isArray(_eduRaw)?_eduRaw.filter(e=>e&&typeof e==="object"&&(e.degree||e.college)):[];
   const langs=safeArr(r.languages||c.languages||[]);
   const certs=r.certifications||c.certifications||[];
   const projects=r.projects||c.projects||[];
@@ -980,7 +982,11 @@ function candModalHTML(){
         </div>`).join("")}
       `:""}
       ${S.candTab==="education"?`
-        ${edu.length===0?`<div class="empty"><div class="empty-icon">🎓</div><div class="empty-title">No education data</div></div>`:""}
+        ${edu.length===0?`<div class="empty">
+          <div class="empty-icon">🎓</div>
+          <div class="empty-title">No education data</div>
+          <div class="empty-sub">Education was not extracted — re-import this candidate to fetch it</div>
+        </div>`:""}
         ${edu.map(e=>{
           if(!e||typeof e!=="object") return "";
           const ss=v=>{if(v==null)return"";if(typeof v==="string")return v.trim();if(typeof v==="number")return String(v);return"";};
