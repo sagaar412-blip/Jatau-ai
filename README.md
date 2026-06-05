@@ -515,9 +515,33 @@ function ago(ts){
   const h=Math.floor(m/60); if(h<24) return h+"h ago";
   return Math.floor(h/24)+"d ago";
 }
-function fmt(v,fb="—"){ return v||fb }
+function fmt(v,fb="—"){
+  if(v==null||v==="") return fb;
+  if(typeof v==="object") return fb;
+  const s=String(v).trim();
+  return s||fb;
+}
+function safeArr(arr){
+  if(!Array.isArray(arr)) return [];
+  return arr.map(x=>{
+    if(!x) return null;
+    if(typeof x==="string") return x.trim()||null;
+    if(typeof x==="object"){
+      const v=x.skill||x.skillName||x.name||x.label||x.tag||x.value||x.text||"";
+      return String(v).trim()||null;
+    }
+    return String(x).trim()||null;
+  }).filter(s=>s&&s!=="[object Object]");
+}
 function initials(n){ return (n||"?").split(" ").filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase() }
-function raw(c){ try{return c._rawData?JSON.parse(c._rawData):(c.rawData?JSON.parse(c.rawData):{})}catch{return{}} }
+function raw(c){
+  try{
+    const rd = c._rawData || c.rawData;
+    if(!rd) return {};
+    if(typeof rd === "object" && !Array.isArray(rd)) return rd;
+    return JSON.parse(rd);
+  }catch{return{}}
+}
 function exp(c){ const e=c.experienceYears; return e!=null?e+"y":"—" }
 
 function filtered(){
@@ -770,7 +794,7 @@ function candidatesHTML(){
 }
 function candRow(c){
   const r=raw(c);
-  const skills=(c.skills||r.keySkills||[]).slice(0,2);
+  const skills=safeArr(c.skills||r.topSkills||r.keySkills||[]).slice(0,2);
   return `
   <tr class="cand-row" data-id="${c._id}">
     <td onclick="event.stopPropagation()"><input type="checkbox" class="cand-chk" data-id="${c._id}"/></td>
@@ -809,23 +833,23 @@ function candModalHTML(){
   // Pull every field — check both top-level (Convex) and rawData
   const wh=r.workHistory||c.workHistory||[];
   const edu=r.education||c.education||[];
-  const langs=[...(r.languages||c.languages||[])];
+  const langs=safeArr(r.languages||c.languages||[]);
   const certs=r.certifications||c.certifications||[];
   const projects=r.projects||c.projects||[];
   const onlineLinks=r.onlineLinks||c.onlineLinks||[];
   const workSamples=r.workSamples||c.workSamples||[];
-  const topSkills=r.topSkills||c.topSkills||[];
-  const verifiedSkills=r.verifiedSkills||c.verifiedSkills||[];
-  const profileTags=r.profileTags||c.profileTags||[];
-  const skills=[...new Set([...(c.skills||[]),...(r.topSkills||[]),...(r.skills||[])])];
+  const topSkills=safeArr(r.topSkills||c.topSkills||[]);
+  const verifiedSkills=safeArr(r.verifiedSkills||c.verifiedSkills||[]);
+  const profileTags=safeArr(r.profileTags||c.profileTags||[]);
+  const skills=[...new Set(safeArr([...(c.skills||[]),...(r.topSkills||[]),...(r.skills||[])]))];
   const ai=c.aiSummary||r.aiSummary||r.resdexAiSummary||"";
   const salary=r.salary||c.salary||"";
   const expectedSalary=r.expectedSalary||c.expectedSalary||"";
   const notice=r.noticePeriod||c.noticePeriod||"";
   const prefLoc=r.preferredLocations||c.preferredLocations||"";
   const jn=jobName(c.jobId);
-  const tabs=["overview","experience","education","skills","projects","ai","notes"];
-  const tabLabels={overview:"Overview",experience:"Work ("+wh.length+")",education:"Education",skills:"Skills",projects:"Projects ("+projects.length+")",ai:"AI Insights",notes:"Notes"};
+  const tabs=["overview","experience","education","skills","projects","ai","cv","notes"];
+  const tabLabels={overview:"Overview",experience:"Work ("+wh.length+")",education:"Education",skills:"Skills",projects:"Projects ("+projects.length+")",ai:"AI Insights",cv:"Full CV",notes:"Notes"};
 
   return `<div class="overlay" id="candOverlay">
   <div class="modal">
@@ -957,15 +981,25 @@ function candModalHTML(){
       `:""}
       ${S.candTab==="education"?`
         ${edu.length===0?`<div class="empty"><div class="empty-icon">🎓</div><div class="empty-title">No education data</div></div>`:""}
-        ${edu.map(e=>`
-        <div class="work-item" style="margin-bottom:16px">
+        ${edu.map(e=>{
+          if(!e||typeof e!=="object") return "";
+          const ss=v=>{if(v==null)return"";if(typeof v==="string")return v.trim();if(typeof v==="number")return String(v);return"";};
+          const deg=ss(e.degree)||ss(e.course)||ss(e.qualification)||ss(e.courseName)||"";
+          const spec=ss(e.specialization)||ss(e.specialisationName)||ss(e.stream)||"";
+          const col=ss(e.college)||ss(e.instituteName)||ss(e.institute)||ss(e.university)||"";
+          const yr=ss(e.year)||ss(e.passingYear)||ss(e.passedOutYear)||ss(e.passoutYear)||"";
+          const typ=ss(e.type)||ss(e.educationType)||"";
+          const pct=ss(e.percentage)||"";
+          if(!deg&&!col) return "";
+          return `<div class="work-item" style="margin-bottom:16px">
           <div class="work-dot" style="background:var(--blue)"></div>
           <div>
-            <div class="work-title">${fmt(e.degree)}${e.specialization?" · "+e.specialization:""}</div>
-            <div class="work-co">${fmt(e.college)}</div>
-            <div class="work-dates">${e.type?`[${e.type}] `:""}${fmt(e.year)}${e.percentage?" | "+e.percentage+"%":""}</div>
+            <div class="work-title">${deg}${spec?" · "+spec:""}</div>
+            <div class="work-co">${col}</div>
+            <div class="work-dates">${typ?"["+typ+"] ":""}${yr}${pct?" | "+pct+"%":""}</div>
           </div>
-        </div>`).join("")}
+        </div>`;
+        }).join("")}
         ${certs.length?`
         <div class="section-lbl" style="margin-top:20px">Certifications (${certs.length})</div>
         ${certs.map(cert=>`
@@ -1021,6 +1055,20 @@ function candModalHTML(){
         <div class="section-lbl">Candidate Summary</div>
         <div style="font-size:13px;color:var(--text2);line-height:1.65;background:var(--bg3);border-radius:var(--r);padding:12px">${c.summary||r.workSummary}</div>
         `:""}
+      `:""}
+      ${S.candTab==="cv"?`
+        ${(r.cvText||c.cvText)?`
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-size:12px;color:var(--text3)">${(r.cvText||c.cvText||"").length.toLocaleString()} characters extracted</div>
+          ${(r.resumeUrl||c.resumeUrl)?`<a href="${r.resumeUrl||c.resumeUrl}" target="_blank" class="btn btn-secondary btn-sm">⬇ Download CV</a>`:""}
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:16px;font-family:'Geist Mono',monospace;font-size:11px;line-height:1.7;color:var(--text2);white-space:pre-wrap;overflow-y:auto;max-height:500px">${(r.cvText||c.cvText||"").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>
+        `:`
+        <div class="empty">
+          <div class="empty-icon">📄</div>
+          <div class="empty-title">No CV text available</div>
+          <div class="empty-sub">CV text is extracted from fssResponse.content when Naukri has the uploaded resume. Import the candidate again to fetch it.</div>
+        </div>`}
       `:""}
       ${S.candTab==="notes"?`
         <div style="display:flex;gap:8px;margin-bottom:14px">
